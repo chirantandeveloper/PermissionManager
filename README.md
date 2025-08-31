@@ -15,6 +15,22 @@ It supports
 - Shows how to **open camera and gallery** and display the selected/captured image in an `ImageView`.  
 - Handles **permanent denial** with a Snackbar redirect to app settings.  
 
+---
+
+## Overview: PermissionManager
+`PermissionManager` is a **helper class** that simplifies runtime permission handling in Android.  
+
+**Key features:**
+- Works with **any runtime permission** (Camera, Storage, Location, Microphone, etc.)  
+- Handles three cases automatically:  
+  1. **Granted** → executes your action  
+  2. **Denied** → user denied but can ask again  
+  3. **PermanentlyDenied** → user selected “Don’t ask again”; shows a **Snackbar** with **Settings redirect**  
+- Uses **ActivityResultLauncher** internally to avoid deprecated `onActivityResult`  
+- Reduces boilerplate code for permission checks and handling  
+
+---
+
 ## How to Use `PermissionManager` in Activity
 ### 1. Initialize `PermissionManager`
 ```kotlin
