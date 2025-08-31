@@ -1,121 +1,59 @@
 package com.chirantan.permissionmanager
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
+import androidx.core.app.ActivityCompat
 
-class PermissionManager private constructor(
-    private val activity: Activity,
-    private val builder: Builder
-) {
-    private lateinit var launcher: ActivityResultLauncher<Array<String>>
+class PermissionManager(private val activity: ComponentActivity) {
 
-    fun attachLauncher(launcher: ActivityResultLauncher<Array<String>>) {
-        this.launcher = launcher
+    sealed class PermissionResult {
+        object Granted : PermissionResult()
+        object Denied : PermissionResult()
+        object PermanentlyDenied : PermissionResult()
     }
 
-    fun request() {
-        launcher.launch(builder.permissions.toTypedArray())
-    }
+    private lateinit var permissionLauncher: ActivityResultLauncher<String>
+    private var callback: ((PermissionResult) -> Unit)? = null
 
-    fun handleResult(result: Map<String, Boolean>) {
-        val denied = result.filter { !it.value }.map { it.key }
-
-        when {
-            denied.isEmpty() -> builder.onGranted?.invoke()
-            denied.any { !activity.shouldShowRequestPermissionRationale(it) } ->
-                builder.onPermanentlyDenied?.invoke(denied)
-            else -> {
-                if (builder.rationaleMessage != null) {
-                    showRationaleDialog(denied)
+    init {
+        permissionLauncher =
+            activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+                val permission = currentPermission ?: return@registerForActivityResult
+                if (isGranted) {
+                    callback?.invoke(PermissionResult.Granted)
                 } else {
-                    builder.onDenied?.invoke(denied)
+                    val showRationale =
+                        ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
+                    if (showRationale) {
+                        callback?.invoke(PermissionResult.Denied)
+                    } else {
+                        // User selected "Don't ask again"
+                        callback?.invoke(PermissionResult.PermanentlyDenied)
+                    }
                 }
             }
-        }
     }
 
-    private fun showRationaleDialog(denied: List<String>) {
-        AlertDialog.Builder(activity)
-            .setTitle(builder.rationaleTitle ?: "Permission Required")
-            .setMessage(builder.rationaleMessage ?: "We need this permission for proper functionality.")
-            .setPositiveButton("Allow") { _, _ ->
-                launcher.launch(denied.toTypedArray()) // re-request
-            }
-            .setNegativeButton("Cancel") { _, _ ->
-                builder.onDenied?.invoke(denied)
-            }
-            .show()
+    private var currentPermission: String? = null
+
+    fun requestPermission(
+        permission: String,
+        onResult: (PermissionResult) -> Unit
+    ) {
+        currentPermission = permission
+        callback = onResult
+        permissionLauncher.launch(permission)
     }
 
-    // --- DSL Builder ---
-    class Builder {
-        internal val permissions = mutableListOf<String>()
-        internal var onGranted: (() -> Unit)? = null
-        internal var onDenied: ((List<String>) -> Unit)? = null
-        internal var onPermanentlyDenied: ((List<String>) -> Unit)? = null
-        internal var rationaleTitle: String? = null
-        internal var rationaleMessage: String? = null
-
-        fun permissions(vararg perms: String) {
-            permissions.addAll(perms)
-        }
-
-        fun onGranted(block: () -> Unit) {
-            onGranted = block
-        }
-
-        fun onDenied(block: (List<String>) -> Unit) {
-            onDenied = block
-        }
-
-        fun onPermanentlyDenied(block: (List<String>) -> Unit) {
-            onPermanentlyDenied = block
-        }
-
-        fun rationale(title: String, message: String) {
-            rationaleTitle = title
-            rationaleMessage = message
-        }
-    }
-
-    companion object {
-        fun request(activity: FragmentActivity, block: Builder.() -> Unit) {
-            val builder = Builder().apply(block)
-            val pm = PermissionManager(activity, builder)
-
-            val launcher = activity.activityResultRegistry.register(
-                "permissions_${System.currentTimeMillis()}",
-                ActivityResultContracts.RequestMultiplePermissions()
-            ) { result -> pm.handleResult(result) }
-
-            pm.attachLauncher(launcher)
-            pm.request()
-        }
-
-        fun request(fragment: Fragment, block: Builder.() -> Unit) {
-            val builder = Builder().apply(block)
-            val pm = PermissionManager(fragment.requireActivity(), builder)
-
-            val launcher = fragment.registerForActivityResult(
-                ActivityResultContracts.RequestMultiplePermissions()
-            ) { result -> pm.handleResult(result) }
-
-            pm.attachLauncher(launcher)
-            pm.request()
-        }
-
-        fun openAppSettings(activity: Activity) {
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", activity.packageName, null)
-            }
-            activity.startActivity(intent)
-        }
+    fun openAppSettings() {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", activity.packageName, null)
+        )
+        activity.startActivity(intent)
     }
 }
