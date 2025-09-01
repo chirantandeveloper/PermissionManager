@@ -1,6 +1,7 @@
 package com.chirantan.permissionmanager
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -16,38 +17,67 @@ class PermissionManager(private val activity: ComponentActivity) {
         object PermanentlyDenied : PermissionResult()
     }
 
-    private lateinit var permissionLauncher: ActivityResultLauncher<String>
+    private lateinit var singlePermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var multiplePermissionLauncher: ActivityResultLauncher<Array<String>>
     private var callback: ((PermissionResult) -> Unit)? = null
 
     init {
-        permissionLauncher =
+        // Single permission request
+        singlePermissionLauncher =
             activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-                val permission = currentPermission ?: return@registerForActivityResult
+                val permission = currentPermissions?.firstOrNull() ?: return@registerForActivityResult
                 if (isGranted) {
-                    callback?.invoke(PermissionResult.Granted)
+                    deliverResult(PermissionResult.Granted)
                 } else {
                     val showRationale =
                         ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
                     if (showRationale) {
-                        callback?.invoke(PermissionResult.Denied)
+                        deliverResult(PermissionResult.Denied)
                     } else {
-                        // User selected "Don't ask again"
-                        callback?.invoke(PermissionResult.PermanentlyDenied)
+                        deliverResult(PermissionResult.PermanentlyDenied)
                     }
+                }
+            }
+
+        // Multiple permissions request
+        multiplePermissionLauncher =
+            activity.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+                val denied = results.filterValues { !it }.keys
+                when {
+                    denied.isEmpty() -> deliverResult(PermissionResult.Granted)
+                    denied.any { !ActivityCompat.shouldShowRequestPermissionRationale(activity, it) } ->
+                        deliverResult(PermissionResult.PermanentlyDenied)
+                    else -> deliverResult(PermissionResult.Denied)
                 }
             }
     }
 
-    private var currentPermission: String? = null
+    private var currentPermissions: Array<out String>? = null
 
     fun requestPermission(
-        permission: String,
+        vararg permissions: String,
         onResult: (PermissionResult) -> Unit
     ) {
-        currentPermission = permission
+        currentPermissions = permissions
         callback = onResult
-        permissionLauncher.launch(permission)
+
+        // If all are already granted → shortcut
+        val allGranted = permissions.all {
+            ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (allGranted) {
+            deliverResult(PermissionResult.Granted)
+            return
+        }
+
+        if (permissions.size == 1) {
+            singlePermissionLauncher.launch(permissions[0])
+        } else {
+            multiplePermissionLauncher.launch(arrayOf(*permissions)) // ✅ Corrected
+        }
     }
+
+
 
     fun openAppSettings() {
         val intent = Intent(
@@ -55,5 +85,11 @@ class PermissionManager(private val activity: ComponentActivity) {
             Uri.fromParts("package", activity.packageName, null)
         )
         activity.startActivity(intent)
+    }
+
+    private fun deliverResult(result: PermissionResult) {
+        callback?.invoke(result)
+        callback = null
+        currentPermissions = null
     }
 }
