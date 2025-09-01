@@ -66,26 +66,24 @@ private fun openCamera() {
 ```
 ### 3. Handle multiple permissions
 ```kotlin
-btnOpenGallery.setOnClickListener {
-    val storagePermission =
-        if (Build.VERSION.SbtnRequestLocation.setOnClickListener {
-            permissionManager.requestPermission(
-              Manifest.permission.ACCESS_FINE_LOCATION,
-              Manifest.permission.ACCESS_COARSE_LOCATION
-            ) { result ->
-              when (result) {
-                is PermissionManager.PermissionResult.Granted -> {
-                  Toast.makeText(this, "Location permissions granted", Toast.LENGTH_SHORT).show()
-                  startLocationUpdates()
-                }
-                is PermissionManager.PermissionResult.Denied ->
-                  Toast.makeText(this, "Location permissions denied", Toast.LENGTH_SHORT).show()
-                is PermissionManager.PermissionResult.PermanentlyDenied ->
-                  permissionManager.openAppSettings()
-              }
-            }
-          }
+btnRequestLocation.setOnClickListener {
+  permissionManager.requestPermissions(
+    Manifest.permission.ACCESS_FINE_LOCATION,
+    Manifest.permission.ACCESS_COARSE_LOCATION
+  ) { result ->
+    when (result) {
+      is PermissionManager.PermissionResult.Granted -> {
+        Toast.makeText(this, "Location permissions granted", Toast.LENGTH_SHORT).show()
+        startLocationUpdates()
+      }
+      is PermissionManager.PermissionResult.Denied ->
+        Toast.makeText(this, "Location permissions denied", Toast.LENGTH_SHORT).show()
+      is PermissionManager.PermissionResult.PermanentlyDenied ->
+        permissionManager.openAppSettings()
+    }
+  }
 }
+
 
 
 ```
