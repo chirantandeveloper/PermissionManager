@@ -64,30 +64,29 @@ private fun openCamera() {
     // Launch camera using ActivityResultLauncher or your preferred method
 }
 ```
-### 3. Open Gallery with Permission Handling
+### 3. Handle multiple permissions
 ```kotlin
 btnOpenGallery.setOnClickListener {
     val storagePermission =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_IMAGES
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-
-    permissionManager.requestPermission(storagePermission) { result ->
-        when (result) {
-            is PermissionManager.PermissionResult.Granted -> openGallery()
-            is PermissionManager.PermissionResult.Denied ->
-                Toast.makeText(this, "Storage permission denied", Toast.LENGTH_SHORT).show()
-            is PermissionManager.PermissionResult.PermanentlyDenied ->
-                permissionManager.openAppSettings()
-        }
-    }
+        if (Build.VERSION.SbtnRequestLocation.setOnClickListener {
+            permissionManager.requestPermission(
+              Manifest.permission.ACCESS_FINE_LOCATION,
+              Manifest.permission.ACCESS_COARSE_LOCATION
+            ) { result ->
+              when (result) {
+                is PermissionManager.PermissionResult.Granted -> {
+                  Toast.makeText(this, "Location permissions granted", Toast.LENGTH_SHORT).show()
+                  startLocationUpdates()
+                }
+                is PermissionManager.PermissionResult.Denied ->
+                  Toast.makeText(this, "Location permissions denied", Toast.LENGTH_SHORT).show()
+                is PermissionManager.PermissionResult.PermanentlyDenied ->
+                  permissionManager.openAppSettings()
+              }
+            }
+          }
 }
 
-private fun openGallery() {
-    // Launch gallery using ActivityResultLauncher or your preferred method
-}
 
 ```
 
